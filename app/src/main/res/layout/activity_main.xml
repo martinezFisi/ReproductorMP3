@@ -85,6 +85,8 @@
             android:layout_height="50dp"
             android:id="@+id/previousButton"
             android:background="@android:drawable/ic_media_previous"
+            android:scaleType="fitStart"
+            android:padding="0dp"
             />
 
         <ImageButton
@@ -92,6 +94,8 @@
             android:layout_height="50dp"
             android:id="@+id/playButton"
             android:background="@android:drawable/ic_media_play"
+            android:scaleType="fitStart"
+            android:padding="0dp"
             />
 
         <ImageButton
@@ -99,6 +103,8 @@
             android:layout_height="50dp"
             android:id="@+id/nextButton"
             android:background="@android:drawable/ic_media_next"
+            android:scaleType="fitStart"
+            android:padding="0dp"
             />
 
 

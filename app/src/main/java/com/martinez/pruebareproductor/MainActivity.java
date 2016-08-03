@@ -59,6 +59,11 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     //Reproductor
     private MediaPlayer mp;
+    //Posición del tiempo actual de la cancion
+    private int posicion;
+
+    //Estado de la reproduccion
+    private boolean reproduciendo = false;
 
     //Botones del reproducto
     private ImageButton playButton;
@@ -250,42 +255,56 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     }
 
 
-    /*
-    //Metodo crearArchivo()
-    private void crearArchivo()
+
+    //Metodo destruir()
+    private void destruir()
     {
-        //Obtenemos la ruta raiz
-        sd = Environment.getExternalStorageDirectory();
-        //Creamos un archivo para escribirlo en la ruta del SD CARD
-        File miFile = new File( sd.getAbsolutePath(), "miFile4.txt" );
-
-
-        try
-        {
-            //Registramos el archivo en la SD CARD
-            OutputStreamWriter output = new OutputStreamWriter( new FileOutputStream(miFile) );
-            //Escribimos algo en el archivo miFile.text
-            output.write( "Prueba de escritura en la sd card" );
-            //Cerramos el archivo
-            output.close();
-
-            aviso.setText( "Registro exitoso" );
-
-        }
-        catch (Exception e)
-        {
-            aviso.setText("Error de tipo "+e.toString());
-        }
-    }*/
-
+        if( mp != null )
+            mp.release();
+    }
 
 
     //Metodo reproducir()
-    public void reproducir( String nombreCancion )
+    private void reproducir( String nombreCancion )
     {
-        Uri datos = Uri.parse( Environment.getExternalStorageDirectory().getAbsolutePath()+"/Music/"+nombreCancion ) ;
-        mp = MediaPlayer.create( getApplicationContext(), datos);
+        destruir();
+        Uri ruta = Uri.parse( Environment.getExternalStorageDirectory().getAbsolutePath()+"/Music/"+nombreCancion ) ;
+        mp = MediaPlayer.create( getApplicationContext(), ruta);
         mp.start();
+        playButton.setBackgroundResource(0);
+        playButton.setImageResource( android.R.drawable.ic_media_pause );
+
+    }
+
+    //Metodo pausar()
+    private void pausar()
+    {
+        //Verificamos que el objeto mp esté creado y en ejecución
+        if( mp != null && mp.isPlaying() )
+        {
+            //Obtenemos la posicion actual de la cancion
+            posicion = mp.getCurrentPosition();
+            //Paramos la reproduccion
+            mp.pause();
+            playButton.setBackgroundResource(0);
+            playButton.setImageResource( android.R.drawable.ic_media_play );
+
+        }
+    }
+
+    //Metodo continuar()
+    private void continuar()
+    {
+        //Verificamos que el objeto mp esté creado y que esté pausado
+        if( mp!=null && mp.isPlaying()==false )
+        {
+            //Llevamos la cancion a la posicion en la que estaba
+            mp.seekTo( posicion );
+            //Reproducimos
+            mp.start();
+            playButton.setBackgroundResource(0);
+            playButton.setImageResource( android.R.drawable.ic_media_pause );
+        }
     }
 
 
@@ -301,21 +320,32 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         {
             posicionActual = position;
 
-            Log.i("Mi Tag", "\nPosicion Anterior: "+posicionAnterior);
-            Log.i("Mi Tag", "Posicion Actual: "+posicionActual);
-
             String nombreCancion = canciones[ posicionActual ];
 
             //Cambiamos el titulo a la de la cancion actual
             tituloTextView.setText( nombreCancion );
-            //Reproducimos la cancion actual
-            reproducir( nombreCancion );
 
-            /*
-            //Cambiamos los colores del item seleccionado y del anterior
-            parent.getChildAt( posicionAnterior ).setBackgroundColor( Color.rgb( 28, 28, 25 ) );
-            parent.getChildAt( posicionActual ).setBackgroundColor( Color.rgb( 233, 202, 0 ) );
-            */
+            if( mp == null )
+            {
+                reproducir( nombreCancion );
+                reproduciendo = !reproduciendo;
+            }
+            else
+            {
+                if( posicionActual == posicionAnterior )
+                {
+                    if( reproduciendo )
+                        pausar();
+                    else
+                        continuar();
+                    reproduciendo = !reproduciendo;
+                }
+                else
+                {
+                    reproducir(nombreCancion);
+                }
+            }
+
 
             posicionAnterior = posicionActual;
         }
