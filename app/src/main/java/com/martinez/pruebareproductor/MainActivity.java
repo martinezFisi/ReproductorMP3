@@ -16,6 +16,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +45,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     private TextView tituloTextView;
     //Tiempo de la cancion
     private TextView tiempoTextView;
+    //Progressbar
+    private ProgressBar progressBar;
 
     //String de canciones
     private String canciones[];
@@ -53,7 +56,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     private ArrayAdapter<String> adaptador;
 
     //Posicion de la cancion actual
-    private int posicionActual;
+    private int posicionActual = 0;
     //Posicion de la cancion anterior
     private int posicionAnterior = 0;
 
@@ -61,6 +64,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     private MediaPlayer mp;
     //Posición del tiempo actual de la cancion
     private int posicion;
+    //Tiempo total de la cancion
+    private int tiempoTotal;
 
     //Estado de la reproduccion
     private boolean reproduciendo = false;
@@ -70,6 +75,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     private ImageButton previousButton;
     private ImageButton nextButton;
 
+    //Hilo secundario
+    private Hilo hiloSecundario;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -86,6 +93,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         playButton = (ImageButton)findViewById( R.id.playButton );
         previousButton = (ImageButton)findViewById( R.id.previousButton );
         nextButton = (ImageButton)findViewById( R.id.nextButton );
+        progressBar = (ProgressBar)findViewById( R.id.progressBar );
 
         //Obtenemos permisos
         obtenerPermisosEscritura();
@@ -101,45 +109,80 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         obtenerCanciones();
         //ejecutar();
 
-
+        //Hilo
+        hiloSecundario = new Hilo();
+        hiloSecundario.setActividadPrincipal( this );
+        hiloSecundario.execute();
 
 
 
 
     }
 
+    public void setEstadoReproduccion( boolean reproduciendo )
+    {
+        this.reproduciendo = reproduciendo;
+    }
+
+    public TextView getTiempoTextView()
+    {
+        return tiempoTextView;
+    }
+
+    public ProgressBar getProgressBar()
+    {
+        return progressBar;
+    }
+
+    public boolean getEstadoReproduccion()
+    {
+        return reproduciendo;
+    }
+
+    public int getTiempoTotalCancion()
+    {
+        return tiempoTotal;
+    }
+
 
     //Metodo obtenerCanciones()
     private void obtenerCanciones()
     {
-        //*****Obtenemos los archivos de /Music que terminen con .mp3****
-        //Avanzamos hasta la carpeta /Music/
-        File filesMP3 = new File( Environment.getExternalStorageDirectory().getAbsolutePath() + "/Music/" );
-        //Obtenemos los .mp3
-        canciones = filesMP3.list(
+        try
+        {
+            //*****Obtenemos los archivos de /Music que terminen con .mp3****
+            //Avanzamos hasta la carpeta /Music/
+            File filesMP3 = new File( Environment.getExternalStorageDirectory().getAbsolutePath() + "/Music/" );
+            //Obtenemos los .mp3
+            canciones = filesMP3.list(
 
-                new FilenameFilter()
-                {
-                    @Override
-                    public boolean accept(File dir, String filename)
+                    new FilenameFilter()
                     {
-                        String lowercaseName = filename.toLowerCase();
+                        @Override
+                        public boolean accept(File dir, String filename)
+                        {
+                            String lowercaseName = filename.toLowerCase();
 
-                        if( lowercaseName.endsWith(".mp3") )
-                            return true;
-                        else
-                            return false;
+                            if( lowercaseName.endsWith(".mp3") )
+                                return true;
+                            else
+                                return false;
 
+                        }
                     }
-                }
 
-        );
+            );
 
 
-        //Inicializamos el adaptador
-        adaptador = new ArrayAdapter<String>( getApplicationContext(), android.R.layout.simple_list_item_1, canciones );
-        //Añadimos el adaptador al listview
-        cancionesListView.setAdapter( adaptador );
+            //Inicializamos el adaptador
+            adaptador = new ArrayAdapter<String>( getApplicationContext(), android.R.layout.simple_list_item_1, canciones );
+            //Añadimos el adaptador al listview
+            cancionesListView.setAdapter( adaptador );
+        }
+        catch( Exception e )
+        {
+            Toast.makeText( getApplicationContext(), "Error de tipo "+e.toString(), Toast.LENGTH_LONG ).show();
+        }
 
 
     }
@@ -265,14 +308,21 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
 
     //Metodo reproducir()
-    private void reproducir( String nombreCancion )
+    private void reproducir()
     {
         destruir();
-        Uri ruta = Uri.parse( Environment.getExternalStorageDirectory().getAbsolutePath()+"/Music/"+nombreCancion ) ;
+        Uri ruta = Uri.parse( Environment.getExternalStorageDirectory().getAbsolutePath()+"/Music/"+canciones[posicionActual] ) ;
         mp = MediaPlayer.create( getApplicationContext(), ruta);
+        tiempoTotal = mp.getDuration()/1000;
+        progressBar.setMax( tiempoTotal );
         mp.start();
+
         playButton.setBackgroundResource(0);
         playButton.setImageResource( android.R.drawable.ic_media_pause );
+
+        hiloSecundario.setSegundos(0);
+        hiloSecundario.setMinutos(0);
+        hiloSecundario.setContador(0);
 
     }
 
@@ -320,14 +370,13 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         {
             posicionActual = position;
 
-            String nombreCancion = canciones[ posicionActual ];
-
             //Cambiamos el titulo a la de la cancion actual
-            tituloTextView.setText( nombreCancion );
+            tituloTextView.setText( canciones[posicionActual] );
+
 
             if( mp == null )
             {
-                reproducir( nombreCancion );
+                reproducir();
                 reproduciendo = !reproduciendo;
             }
             else
@@ -342,7 +391,8 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
                 }
                 else
                 {
-                    reproducir(nombreCancion);
+                    reproducir();
+                    reproduciendo = true;
                 }
             }
 
@@ -360,22 +410,73 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     @Override
     public void onClick(View v)
     {
-
+        Toast.makeText( getApplicationContext(), "Hiciste click", Toast.LENGTH_SHORT).show();
         switch( v.getId() )
         {
             case(R.id.playButton):
+
+                if( mp == null )
+                {
+                    reproducir();
+                    reproduciendo = !reproduciendo;
+                }
+                else
+                {
+                    if( reproduciendo )
+                    {
+                        pausar();
+                    }
+                    else
+                    {
+                        continuar();
+                    }
+                    reproduciendo = ! reproduciendo;
+                }
 
                 break;
 
             case(R.id.previousButton):
 
+                Log.i("Mi tag", "Se presionó el boton previous");
+
+                posicionAnterior = posicionActual;
+                posicionActual--;
+
+                if( posicionActual >= 0 )
+                    reproducir();
+                else
+                {
+                    posicionActual = canciones.length - 1;
+                    posicionAnterior = 0;
+                    reproducir();
+                }
+
+                reproduciendo = true;
+
                 break;
 
             case(R.id.nextButton):
 
+                posicionAnterior = posicionActual;
+                posicionActual++;
+
+                if( posicionActual < canciones.length )
+                    reproducir();
+                else
+                {
+                    posicionActual = 0;
+                    posicionAnterior = canciones.length - 1;
+                    reproducir();
+                }
+
+                reproduciendo = true;
+
                 break;
 
         }
+
+        //Cambiamos el titulo a la de la cancion actual
+        tituloTextView.setText( canciones[posicionActual] );
 
     }
 

@@ -67,8 +67,7 @@
             android:layout_height="wrap_content"
             android:id="@+id/progressBar"
             style="@android:style/Widget.ProgressBar.Horizontal"
-            android:progress="50"
-            android:max="100"
+
 
             />
 
